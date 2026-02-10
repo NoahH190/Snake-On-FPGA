@@ -49,8 +49,6 @@ module render_object_food (
     localparam MAX_X = 624;  // 640 - OBJ_WIDTH
     localparam MAX_Y = 464;  // 480 - OBJ_HEIGHT */
     
-    assign o_s_axis_tready = 1'b1;  // Always ready
-    
     // Process input packets - movement control
     always @(posedge i_clk or negedge i_rst_n) begin
         if (!i_rst_n) begin

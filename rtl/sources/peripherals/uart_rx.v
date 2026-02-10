@@ -9,8 +9,8 @@ module uart_rx #(
     input  wire                i_rx,          // UART RX pin
     
     output reg [DATA_BITS-1:0] o_data,
-    output reg                 r_data_valid,
-    output reg                 r_frame_error
+    output reg                 o_data_valid,
+    output reg                 o_frame_error
 );
 
     // FSM states
@@ -27,19 +27,19 @@ module uart_rx #(
     always @(posedge i_clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
             r_state <= IDLE;
-            r_data_valid <= 0;
-            r_frame_error <= 0;
+            o_data_valid <= 0;
+            o_frame_error <= 0;
             r_tick_count <= 0;
             r_bit_count <= 0;
         end else begin
-            r_data_valid <= 0;  // Default: pulse for one cycle
+            o_data_valid <= 0;  // Default: pulse for one cycle
             
             if (i_baud_tick) begin
                 case (r_state)
                     IDLE: begin
                         if (i_rx == 0) begin  // Start bit detected
-                            state <= START;
-                            tick_count <= 0;
+                            r_state <= START;
+                            r_tick_count <= 0;
                         end
                     end
                     
@@ -77,10 +77,10 @@ module uart_rx #(
                         if (r_tick_count == 15) begin
                             if (i_rx == 1) begin  // Valid stop bit
                                 o_data <= r_shift_reg;
-                                r_data_valid <= 1;
-                                r_frame_error <= 0;
+                                o_data_valid <= 1;
+                                o_frame_error <= 0;
                             end else begin
-                                r_frame_error <= 1;
+                                o_frame_error <= 1;
                             end
                             r_state <= IDLE;
                             r_tick_count <= 0;

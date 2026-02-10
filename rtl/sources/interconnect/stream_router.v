@@ -6,7 +6,7 @@ module stream_router (
     input  wire [63:0] i_s_axis_tdata,
     input  wire        i_s_axis_tvalid,
     input  wire        i_s_axis_tlast,
-    output reg         i_s_axis_tready,
+    output reg         o_s_axis_tready,
     
     // ===== Output Port 0 (Player - Type 0x01) =====
     output reg  [63:0] o_m_axis_port0_tdata,
@@ -81,10 +81,10 @@ module stream_router (
     // ========== Backpressure Logic ==========
     always @(*) begin
         case (w_packet_type)
-            8'h01: i_s_axis_tready = o_m_axis_port0_tready;
-            8'h02: i_s_axis_tready = o_m_axis_port1_tready;
-            8'h03: i_s_axis_tready = o_m_axis_port3_tready;
-            default: i_s_axis_tready = 1'b1;  // Always ready for unknown types
+            8'h01: o_s_axis_tready = i_m_axis_port0_tready;
+            8'h02: o_s_axis_tready = i_m_axis_port1_tready;
+            8'h03: o_s_axis_tready = i_m_axis_port3_tready;
+            default: o_s_axis_tready = 1'b1;  // Always ready for unknown types
         endcase
     end
 

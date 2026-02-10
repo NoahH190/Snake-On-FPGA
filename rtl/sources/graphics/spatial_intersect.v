@@ -13,18 +13,18 @@ module spatial_intersect (
     input  wire        i_rst_n,
     
     // ===== Projectile Position =====
-    input  wire [9:0]  obj1_x,
-    input  wire [9:0]  obj1_y,
-    input  wire        obj1_active,
+    input  wire [9:0]  i_obj1_x,
+    input  wire [9:0]  i_obj1_y,
+    input  wire        i_obj1_active,
     
     // ===== Moving Grid Position =====
-    input  wire [9:0]  group_x,
-    input  wire [9:0]  group_y,
+    input  wire [9:0]  i_group_x,
+    input  wire [9:0]  i_group_y,
     
     // ===== Collision Output =====
-    output reg         collision_detected,
-    output reg  [2:0]  hit_row,    // 0-2 (3 rows)
-    output reg  [3:0]  hit_col     // 0-7 (8 columns)
+    output reg         o_collision_detected,
+    output reg  [2:0]  o_hit_row,    // 0-2 (3 rows)
+    output reg  [3:0]  o_hit_col     // 0-7 (8 columns)
 );
 
     // ========== Constants ==========
@@ -37,55 +37,55 @@ module spatial_intersect (
     
     // ========== Collision Detection Logic ==========
     integer row, col;
-    reg [9:0] element_x, element_y;
-    reg overlap_x, overlap_y;
-    reg [2:0] temp_hit_row;
-    reg [3:0] temp_hit_col;
-    reg temp_collision;
+    reg [9:0] r_element_x, r_element_y;
+    reg r_overlap_x, r_overlap_y;
+    reg [2:0] r_temp_hit_row;
+    reg [3:0] r_temp_hit_col;
+    reg r_temp_collision;
     
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
-            collision_detected <= 0;
-            hit_row <= 0;
-            hit_col <= 0;
-        end else if (obj1_active) begin
+    always @(posedge i_clk or negedge i_rst_n) begin
+        if (!i_rst_n) begin
+            o_collision_detected <= 0;
+            o_hit_row <= 0;
+            o_hit_col <= 0;
+        end else if (i_obj1_active) begin
             // Reset collision flags
-            temp_collision = 0;
-            temp_hit_row = 0;
-            temp_hit_col = 0;
+            r_temp_collision = 0;
+            r_temp_hit_row = 0;
+            r_temp_hit_col = 0;
             
             // Check collision with all possible element positions
             // render_group will determine if the element is actually alive
             for (row = 0; row < GRID_ROWS; row = row + 1) begin
                 for (col = 0; col < GRID_COLS; col = col + 1) begin
                     // Calculate element position relative to moving grid
-                    element_x = group_x + (col * SPACING);
-                    element_y = group_y + (row * SPACING);
+                    r_element_x = i_group_x + (col * SPACING);
+                    r_element_y = i_group_y + (row * SPACING);
                     
                     // Check X overlap
-                    overlap_x = (obj1_x < element_x + GROUP_ELEMENT_SIZE) &&
-                               (obj1_x + OBJ1_WIDTH > element_x);
+                    r_overlap_x = (i_obj1_x < r_element_x + GROUP_ELEMENT_SIZE) &&
+                               (i_obj1_x + OBJ1_WIDTH > r_element_x);
                     
                     // Check Y overlap
-                    overlap_y = (obj1_y < element_y + GROUP_ELEMENT_SIZE) &&
-                               (obj1_y + OBJ1_HEIGHT > element_y);
+                    r_overlap_y = (i_obj1_y < r_element_y + GROUP_ELEMENT_SIZE) &&
+                               (i_obj1_y + OBJ1_HEIGHT > r_element_y);
                     
                     // If both X and Y overlap, we have a potential hit
-                    if (overlap_x && overlap_y && !temp_collision) begin
-                        temp_collision = 1;
-                        temp_hit_row = row;
-                        temp_hit_col = col;
+                    if (r_overlap_x && r_overlap_y && !r_temp_collision) begin
+                        r_temp_collision = 1;
+                        r_temp_hit_row = row;
+                        r_temp_hit_col = col;
                     end
                 end
             end
             
             // Output the collision result
-            collision_detected <= temp_collision;
-            hit_row <= temp_hit_row;
-            hit_col <= temp_hit_col;
+            o_collision_detected <= r_temp_collision;
+            o_hit_row <= r_temp_hit_row;
+            o_hit_col <= r_temp_hit_col;
             
         end else begin
-            collision_detected <= 0;
+            o_collision_detected <= 0;
         end
     end
 
