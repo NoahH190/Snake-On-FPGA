@@ -13,14 +13,14 @@ module clk_divider #(
     // *16 because we oversample at 16x baud rate
     localparam DIVISOR = CLK_FREQ / (BAUD_RATE * 16);
     
-    reg [$clog2(DIVISOR)-1:0] r_counter;
+    reg [$clog2(DIVISOR)-1:0] r_counter; 
     
-    always @(posedge i_clk or negedge i_rst_n) begin
-        if (!i_rst_n) begin
+    always @(posedge i_clk or negedge i_rst_n) begin 
+        if (!i_rst_n) begin 
             r_counter <= 0;
             o_baud_tick <= 0;
         end else begin
-            if (r_counter == DIVISOR - 1) begin
+            if (r_counter == DIVISOR - 1) begin //We want a baud tick every ~1700000 Hz
                 r_counter <= 0;
                 o_baud_tick <= 1;
             end else begin

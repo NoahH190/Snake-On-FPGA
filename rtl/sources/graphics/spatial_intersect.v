@@ -6,11 +6,6 @@
 // Author:      Noah Harman (Adapted from Krishang Krishang Talsania)
 // Created:     2026-02-04
 // Revision:    0.2 - 2025-01-08 - Dynamic grid position tracking
-//
-// Revisions:
-//   0.0 - 2025-01-08 - Basic AABB collision
-//   0.1 - 2025-01-08 - Tested with static grid
-//   0.2 - 2025-01-08 - Updated for moving reference frame
 // ============================================================================
 
 module spatial_intersect (

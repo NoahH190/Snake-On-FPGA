@@ -10,15 +10,21 @@
 // Revisions:
 // ============================================================================
 
-module render_object_snake (
+module render_object_food (
     input  wire        i_clk,
     input  wire        i_rst_n,
     
-    // From packet router (Port 0 - Control input)
+    /* From packet router (Port 0 - Control input)
     input  wire [63:0] i_s_axis_tdata,
     input  wire        i_s_axis_tvalid,
     input  wire        i_s_axis_tlast,
-    output wire        o_s_axis_tready,
+    output wire        o_s_axis_tready, */
+
+
+    // Food location from LFSR
+    input  wire [9:0]  i_food_x,
+    input  wire [9:0]  i_food_y,
+    input  wire        i_ate, 
     
     // VGA pixel query
     input  wire [9:0]  i_pixel_x,
@@ -32,66 +38,28 @@ module render_object_snake (
     
     // Object state (for collision/interaction)
     output reg  [9:0]  o_obj0_x,
-    output reg  [9:0]  o_obj0_y,
-    output reg         o_trigger
+    output reg  [9:0]  o_obj0_y
 );
 
     // Object sprite size
     localparam OBJ_WIDTH = 16;
     localparam OBJ_HEIGHT = 16;
     
-    // Movement parameters
-    localparam VELOCITY = 4;
-    
-    // Screen boundaries
+    /* Screen boundaries
     localparam MAX_X = 624;  // 640 - OBJ_WIDTH
-    localparam MAX_Y = 464;  // 480 - OBJ_HEIGHT
+    localparam MAX_Y = 464;  // 480 - OBJ_HEIGHT */
     
     assign o_s_axis_tready = 1'b1;  // Always ready
     
-    // Extract packet fields
-    wire [7:0] w_packet_type = i_s_axis_tdata[7:0];    // Byte 0
-    wire [7:0] w_direction   = i_s_axis_tdata[15:8];   // Byte 1
-    wire [7:0] w_action      = i_s_axis_tdata[23:16];  // Byte 2
-    
-    // Process input packets - SEPARATE movement and trigger
+    // Process input packets - movement control
     always @(posedge i_clk or negedge i_rst_n) begin
         if (!i_rst_n) begin
             o_obj0_x <= 10'd320 - (OBJ_WIDTH/2);
             o_obj0_y <= 10'd450;
-            o_trigger <= 1'b0;
         end else begin
-            // Default: no trigger
-            o_trigger <= 1'b0;
-            
-            if (i_s_axis_tvalid && i_s_axis_tlast) begin
-                // Trigger action (INDEPENDENT of movement)
-                if (w_action == 8'd1) begin
-                    o_trigger <= 1'b1;  // Pulse for one clock cycle
-                end
-                
-                // Movement (processes regardless of trigger)
-                case (direction)
-                    8'd1: begin  // Up
-                        if (obj0_y > VELOCITY)
-                            o_obj0_y <= o_obj0_y - VELOCITY;
-                    end
-                    8'd2: begin  // Down
-                        if (o_obj0_y < MAX_Y)
-                            o_obj0_y <= o_obj0_y + VELOCITY;
-                    end
-                    8'd3: begin  // Left
-                        if (o_obj0_x > VELOCITY)
-                            o_obj0_x <= o_obj0_x - VELOCITY;
-                    end
-                    8'd4: begin  // Right
-                        if (o_obj0_x < MAX_X)
-                            o_obj0_x <= o_obj0_x + VELOCITY;
-                    end
-                    default: begin
-                        // No movement, but trigger might still be active
-                    end
-                endcase
+            if (i_ate) begin
+                o_obj0_x <= i_food_x; 
+                o_obj0_y <= i_food_y; 
             end
         end
     end
