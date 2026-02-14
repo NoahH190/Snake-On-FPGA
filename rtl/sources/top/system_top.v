@@ -166,27 +166,69 @@ module system_top (
         .o_video_on(w_video_on)
     );
     
-    // ========== Render Object 0 ==========
-    wire [3:0] w_obj0_r, w_obj0_g, w_obj0_b;
-    wire [9:0] w_obj0_x, w_obj0_y;
-    wire w_trigger;
+    // ========== LFSR (Random Food Position Generator) ==========
+    wire [3:0] w_lfsr_x, w_lfsr_y;
     
-    render_object_0 object_0 ( /*MISSING*/
-        .clk(i_clk),
-        .rst_n(i_rst_n && !w_reset_pulse),  // Reset on system restart
-        .s_axis_tdata(w_player_tdata),
-        .s_axis_tvalid(w_player_tvalid && w_system_active),  // Only move when active
-        .s_axis_tlast(w_player_tlast),
-        .s_axis_tready(w_player_tready),
-        .pixel_x(w_pixel_x),
-        .pixel_y(w_pixel_y),
-        .video_on(w_video_on),
-        .vga_r(w_obj0_r),
-        .vga_g(w_obj0_g),
-        .vga_b(w_obj0_b),
-        .obj0_x(w_obj0_x),
-        .obj0_y(w_obj0_y),
-        .trigger(w_trigger)
+    lsfr food_rng (
+        .i_clk(i_clk),
+        .i_rst(~i_rst_n),
+        .o_x_data(w_lfsr_x),
+        .o_y_data(w_lfsr_y)
+    );
+    
+    // Scale 4-bit LFSR (0-15) to screen coordinates
+    // x * 38 → range 0–570 (fits 640px minus 16px food sprite)
+    // y * 28 → range 0–420 (fits 480px minus 16px food sprite)
+    wire [9:0] w_food_spawn_x = w_lfsr_x * 10'd38;
+    wire [9:0] w_food_spawn_y = w_lfsr_y * 10'd28;
+    
+    // ========== Render Snake Head ==========
+    wire [3:0] w_snake_r, w_snake_g, w_snake_b;
+    wire [9:0] w_snake_x, w_snake_y;
+    
+    render_object_snake_head snake_head (
+        .i_clk(i_clk),
+        .i_rst_n(i_rst_n && !w_reset_pulse),  // Reset on system restart
+        .i_s_axis_tdata(w_player_tdata),
+        .i_s_axis_tvalid(w_player_tvalid && w_system_active),  // Only move when active
+        .i_s_axis_tlast(w_player_tlast),
+        .o_s_axis_tready(w_player_tready),
+        .i_pixel_x(w_pixel_x),
+        .i_pixel_y(w_pixel_y),
+        .i_video_on(w_video_on),
+        .o_vga_r(w_snake_r),
+        .o_vga_g(w_snake_g),
+        .o_vga_b(w_snake_b),
+        .o_obj0_x(w_snake_x),
+        .o_obj0_y(w_snake_y)
+    );
+    
+    // ========== Food-Snake Collision Detection (AABB) ==========
+    // Snake head sprite: 64x48, Food sprite: 16x16
+    wire [9:0] w_food_x, w_food_y;
+    
+    wire w_food_ate = (w_snake_x < w_food_x + 10'd16) &&
+                      (w_snake_x + 10'd64 > w_food_x) &&
+                      (w_snake_y < w_food_y + 10'd16) &&
+                      (w_snake_y + 10'd48 > w_food_y);
+    
+    // ========== Render Food ==========
+    wire [3:0] w_food_r, w_food_g, w_food_b;
+    
+    render_object_food food (
+        .i_clk(i_clk),
+        .i_rst_n(i_rst_n && !w_reset_pulse),  // Reset on system restart
+        .i_food_x(w_food_spawn_x),
+        .i_food_y(w_food_spawn_y),
+        .i_ate(w_food_ate),
+        .i_pixel_x(w_pixel_x),
+        .i_pixel_y(w_pixel_y),
+        .i_video_on(w_video_on),
+        .o_vga_r(w_food_r),
+        .o_vga_g(w_food_g),
+        .o_vga_b(w_food_b),
+        .o_obj0_x(w_food_x),
+        .o_obj0_y(w_food_y)
     );
     
     // ========== Render Object 1 ==========
@@ -198,9 +240,9 @@ module system_top (
     render_object_1 object_1 ( /*MISSING*/
         .clk(i_clk),
         .rst_n(i_rst_n && !w_reset_pulse),  // Reset on system restart
-        .trigger(w_trigger && w_system_active),    // Only trigger when active
-        .spawn_x(w_obj0_x),
-        .spawn_y(w_obj0_y),
+        .trigger(w_food_ate && w_system_active),    // Only trigger when active
+        .spawn_x(w_snake_x),
+        .spawn_y(w_snake_y),
         .collision_detected(w_collision_detected),
         .pixel_x(w_pixel_x),
         .pixel_y(w_pixel_y),
@@ -265,6 +307,7 @@ module system_top (
     );
     
     // ========== VGA Mixer ==========
+    // Priority: snake head > food > obj1 > group > background
     reg [3:0] r_mixed_r, r_mixed_g, r_mixed_b;
     
     always @(posedge i_clk or negedge i_rst_n) begin
@@ -277,14 +320,18 @@ module system_top (
                 r_mixed_r <= 4'h0;
                 r_mixed_g <= 4'h0;
                 r_mixed_b <= 4'h0;
+            end else if (w_snake_r != 4'h0 || w_snake_g != 4'h0 || w_snake_b != 4'h0) begin
+                r_mixed_r <= w_snake_r;
+                r_mixed_g <= w_snake_g;
+                r_mixed_b <= w_snake_b;
+            end else if (w_food_r != 4'h0 || w_food_g != 4'h0 || w_food_b != 4'h0) begin
+                r_mixed_r <= w_food_r;
+                r_mixed_g <= w_food_g;
+                r_mixed_b <= w_food_b;
             end else if (w_obj1_r != 4'h0 || w_obj1_g != 4'h0 || w_obj1_b != 4'h0) begin
                 r_mixed_r <= w_obj1_r;
                 r_mixed_g <= w_obj1_g;
                 r_mixed_b <= w_obj1_b;
-            end else if (w_obj0_r != 4'h0 || w_obj0_g != 4'h0 || w_obj0_b != 4'h0) begin
-                r_mixed_r <= w_obj0_r;
-                r_mixed_g <= w_obj0_g;
-                r_mixed_b <= w_obj0_b;
             end else if (w_group_r != 4'h0 || w_group_g != 4'h0 || w_group_b != 4'h0) begin
                 r_mixed_r <= w_group_r;
                 r_mixed_g <= w_group_g;
